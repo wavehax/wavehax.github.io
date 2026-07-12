@@ -34,6 +34,22 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <script>
+    // One-time migration: unregister stale FCM SW that was incorrectly registered
+    // at scope / and competed with Flutter's service worker, causing blank screen on mobile.
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        var stale = regs.filter(function(r) {
+          var sw = r.active || r.installing || r.waiting;
+          return sw && sw.scriptURL.indexOf('firebase-messaging-sw.js') !== -1;
+        });
+        if (stale.length > 0) {
+          Promise.all(stale.map(function(r) { return r.unregister(); }))
+            .then(function() { window.location.reload(); });
+        }
+      });
+    }
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 
 </body>
