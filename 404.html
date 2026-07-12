@@ -21,6 +21,24 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <script>
+    // Same one-time FCM SW migration as index.html — required here because
+    // GitHub Pages serves this file for all sub-paths (e.g. /dashboard),
+    // so the migration must run regardless of which path is loaded.
+    if ('serviceWorker' in navigator && !localStorage.getItem('fcm_sw_migration_v2')) {
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        var stale = regs.filter(function(r) {
+          var sw = r.active || r.installing || r.waiting;
+          return sw && sw.scriptURL.indexOf('firebase-messaging-sw.js') !== -1;
+        });
+        localStorage.setItem('fcm_sw_migration_v2', '1');
+        if (stale.length > 0) {
+          Promise.all(stale.map(function(r) { return r.unregister(); }))
+            .then(function() { window.location.reload(); });
+        }
+      });
+    }
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 
 </body>

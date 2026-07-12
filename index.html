@@ -35,14 +35,18 @@
 </head>
 <body>
   <script>
-    // One-time migration: unregister stale FCM SW that was incorrectly registered
-    // at scope / and competed with Flutter's service worker, causing blank screen on mobile.
-    if ('serviceWorker' in navigator) {
+    // One-time migration: remove any firebase-messaging-sw.js registration at
+    // scope /. That SW blocks Flutter's own SW from activating, causing a
+    // permanent blank screen on reload. After this migration runs once it sets
+    // a localStorage flag so it never checks again.
+    if ('serviceWorker' in navigator && !localStorage.getItem('fcm_sw_migration_v2')) {
       navigator.serviceWorker.getRegistrations().then(function(regs) {
         var stale = regs.filter(function(r) {
           var sw = r.active || r.installing || r.waiting;
           return sw && sw.scriptURL.indexOf('firebase-messaging-sw.js') !== -1;
         });
+        // Mark done before reload so the reloaded page skips this block.
+        localStorage.setItem('fcm_sw_migration_v2', '1');
         if (stale.length > 0) {
           Promise.all(stale.map(function(r) { return r.unregister(); }))
             .then(function() { window.location.reload(); });
