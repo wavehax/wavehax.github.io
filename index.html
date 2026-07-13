@@ -39,11 +39,15 @@
     // scope /. That SW blocks Flutter's own SW from activating, causing a
     // permanent blank screen on reload. After this migration runs once it sets
     // a localStorage flag so it never checks again.
+    // NOTE: only targets scope '/' registrations — the intentional /fcm-sw/ registration
+    // (added later in the module script below) is left untouched.
     if ('serviceWorker' in navigator && !localStorage.getItem('fcm_sw_migration_v2')) {
       navigator.serviceWorker.getRegistrations().then(function(regs) {
         var stale = regs.filter(function(r) {
           var sw = r.active || r.installing || r.waiting;
-          return sw && sw.scriptURL.indexOf('firebase-messaging-sw.js') !== -1;
+          // Only remove the old root-scope registration, not our /fcm-sw/ one.
+          return sw && sw.scriptURL.indexOf('firebase-messaging-sw.js') !== -1
+            && !r.scope.endsWith('/fcm-sw/');
         });
         // Mark done before reload so the reloaded page skips this block.
         localStorage.setItem('fcm_sw_migration_v2', '1');
@@ -53,6 +57,69 @@
         }
       });
     }
+  </script>
+  <script type="module">
+    // Web FCM setup: registers firebase-messaging-sw.js at /fcm-sw/ scope so it
+    // never conflicts with Flutter's SW at /. Exposes window._getWebFcmToken()
+    // for Dart to call via JS interop when saving the FCM token.
+    import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js';
+    import { getMessaging, getToken, onMessage, deleteToken } from 'https://www.gstatic.com/firebasejs/12.14.0/firebase-messaging.js';
+
+    const _config = {
+      apiKey: 'AIzaSyAskPD1x26Fua0-O_kFelv0pafmcrZoZPU',
+      authDomain: 'notearray-57841.firebaseapp.com',
+      projectId: 'notearray-57841',
+      storageBucket: 'notearray-57841.firebasestorage.app',
+      messagingSenderId: '568359971803',
+      appId: '1:568359971803:web:50fd26b2fdd97af7d815fe',
+    };
+
+    let _msg = null;
+    let _swReg = null;
+
+    async function _initFcm() {
+      if (_msg) return;
+      const existing = getApps().find(function(a) { return a.name === 'fcm'; });
+      const app = existing || initializeApp(_config, 'fcm');
+      _msg = getMessaging(app);
+
+      // Register at /fcm-sw/ — controls no pages, so Flutter's SW at / is unaffected.
+      _swReg = await navigator.serviceWorker.register(
+        '/firebase-messaging-sw.js',
+        { scope: '/fcm-sw/' }
+      );
+
+      // Show notifications when the web tab is in the foreground.
+      onMessage(_msg, function(payload) {
+        const n = payload.notification || {};
+        if (_swReg) {
+          _swReg.showNotification(n.title || 'JobArray', {
+            body: n.body || '',
+            icon: '/icons/Icon-192.png',
+          });
+        }
+      });
+    }
+
+    window._getWebFcmToken = async function() {
+      try {
+        await _initFcm();
+        const token = await getToken(_msg, { serviceWorkerRegistration: _swReg });
+        return token || null;
+      } catch (e) {
+        console.error('_getWebFcmToken error:', e);
+        return null;
+      }
+    };
+
+    window._deleteWebFcmToken = async function() {
+      try {
+        if (!_msg) return;
+        await deleteToken(_msg);
+      } catch (e) {
+        console.error('_deleteWebFcmToken error:', e);
+      }
+    };
   </script>
   <script src="flutter_bootstrap.js" async></script>
 
