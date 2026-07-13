@@ -104,7 +104,10 @@
     window._getWebFcmToken = async function() {
       try {
         await _initFcm();
-        const token = await getToken(_msg, { serviceWorkerRegistration: _swReg });
+        const token = await getToken(_msg, {
+          vapidKey: 'BKsjaH53C-oCY4jgO4FtxHISyAQtJzpOFGPiATzbP5H_ju4FEAN_5rNqHAVf6iO9o1dqlgmM9iQI4v_ABLqtYcI',
+          serviceWorkerRegistration: _swReg,
+        });
         return token || null;
       } catch (e) {
         console.error('_getWebFcmToken error:', e);
