@@ -13,27 +13,72 @@
 
     This is a placeholder for base href that will be replaced by the value of
     the `--base-href` argument provided to `flutter build`.
+
+    Keep web/404.html and web/portal/index.html in step with this file: GitHub
+    Pages serves them for other paths. test/web/web_shell_test.dart checks
+    that their <body> matches.
   -->
   <base href="/">
 
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
+  <meta name="description" content="Quotes, invoices, jobs and scheduling for service businesses.">
+  <meta name="theme-color" content="#1565C0">
+
+  <!-- Link previews -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="JobArray">
+  <meta property="og:title" content="JobArray">
+  <meta property="og:description" content="Quotes, invoices, jobs and scheduling for service businesses.">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="job_array">
+  <meta name="apple-mobile-web-app-title" content="JobArray">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
 
-  <title>job_array</title>
+  <title>JobArray</title>
   <link rel="manifest" href="manifest.json">
+
+  <style>
+    /* Loading indicator until Flutter draws its first frame. It sits behind
+       the app (z-index -1), so it can never cover it. */
+    body { margin: 0; background: #ffffff; }
+    #splash {
+      position: fixed; inset: 0; z-index: -1;
+      display: flex; align-items: center; justify-content: center;
+      animation: splash-in 0.2s 0.3s both;
+    }
+    #splash div {
+      width: 36px; height: 36px; box-sizing: border-box;
+      border-radius: 50%;
+      border: 3px solid rgba(21, 101, 192, 0.2);
+      border-top-color: #1565C0;
+      animation: splash-spin 0.8s linear infinite;
+    }
+    @keyframes splash-in { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes splash-spin { to { transform: rotate(360deg); } }
+    @media (prefers-color-scheme: dark) {
+      body { background: #121212; }
+      #splash div { border-color: rgba(144, 202, 249, 0.25); border-top-color: #90CAF9; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      #splash div { animation-duration: 2.4s; }
+    }
+  </style>
 </head>
 <body>
+  <div id="splash" role="progressbar" aria-label="Loading"><div></div></div>
+  <script>
+    window.addEventListener('flutter-first-frame', function() {
+      var splash = document.getElementById('splash');
+      if (splash) splash.remove();
+    });
+  </script>
   <script>
     // One-time migration: remove any firebase-messaging-sw.js registration at
     // scope /. That SW blocks Flutter's own SW from activating, causing a
@@ -62,9 +107,11 @@
     // Web FCM setup: registers firebase-messaging-sw.js at /fcm-sw/ scope so it
     // never conflicts with Flutter's SW at /. Exposes window._getWebFcmToken()
     // for Dart to call via JS interop when saving the FCM token.
-    import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js';
-    import { getMessaging, getToken, onMessage, deleteToken } from 'https://www.gstatic.com/firebasejs/12.14.0/firebase-messaging.js';
-
+    //
+    // The Firebase SDK is loaded on the first token request (after sign-in),
+    // so it doesn't compete with the app's first load, and the client portal
+    // never loads it.
+    const _sdk = 'https://www.gstatic.com/firebasejs/12.14.0/';
     const _config = {
       apiKey: 'AIzaSyAskPD1x26Fua0-O_kFelv0pafmcrZoZPU',
       authDomain: 'notearray-57841.firebaseapp.com',
@@ -74,23 +121,29 @@
       appId: '1:568359971803:web:50fd26b2fdd97af7d815fe',
     };
 
+    let _messaging = null; // the firebase-messaging module
     let _msg = null;
     let _swReg = null;
+    let _ready = null;
 
-    async function _initFcm() {
-      if (_msg) return;
-      const existing = getApps().find(function(a) { return a.name === 'fcm'; });
-      const app = existing || initializeApp(_config, 'fcm');
-      _msg = getMessaging(app);
+    async function _loadFcm() {
+      const [appSdk, messagingSdk] = await Promise.all([
+        import(_sdk + 'firebase-app.js'),
+        import(_sdk + 'firebase-messaging.js'),
+      ]);
+      const existing = appSdk.getApps().find(function(a) { return a.name === 'fcm'; });
+      const app = existing || appSdk.initializeApp(_config, 'fcm');
 
       // Register at /fcm-sw/ — controls no pages, so Flutter's SW at / is unaffected.
       _swReg = await navigator.serviceWorker.register(
         '/firebase-messaging-sw.js',
         { scope: '/fcm-sw/' }
       );
+      _messaging = messagingSdk;
+      _msg = messagingSdk.getMessaging(app);
 
       // Show notifications when the web tab is in the foreground.
-      onMessage(_msg, function(payload) {
+      messagingSdk.onMessage(_msg, function(payload) {
         const n = payload.notification || {};
         if (_swReg) {
           _swReg.showNotification(n.title || 'JobArray', {
@@ -101,10 +154,18 @@
       });
     }
 
+    // One load for concurrent callers; a failed load is retried next time.
+    function _initFcm() {
+      if (!_ready) {
+        _ready = _loadFcm().catch(function(e) { _ready = null; throw e; });
+      }
+      return _ready;
+    }
+
     window._getWebFcmToken = async function() {
       try {
         await _initFcm();
-        const token = await getToken(_msg, {
+        const token = await _messaging.getToken(_msg, {
           vapidKey: 'BKsjaH53C-oCY4jgO4FtxHISyAQtJzpOFGPiATzbP5H_ju4FEAN_5rNqHAVf6iO9o1dqlgmM9iQI4v_ABLqtYcI',
           serviceWorkerRegistration: _swReg,
         });
@@ -118,7 +179,7 @@
     window._deleteWebFcmToken = async function() {
       try {
         if (!_msg) return;
-        await deleteToken(_msg);
+        await _messaging.deleteToken(_msg);
       } catch (e) {
         console.error('_deleteWebFcmToken error:', e);
       }

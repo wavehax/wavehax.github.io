@@ -1,11 +1,11 @@
 {
-    "name": "job_array",
-    "short_name": "job_array",
+    "name": "JobArray",
+    "short_name": "JobArray",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#FFFFFF",
+    "theme_color": "#1565C0",
+    "description": "Quotes, invoices, jobs and scheduling for service businesses.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

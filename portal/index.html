@@ -2,24 +2,25 @@
 <html>
 <head>
   <!--
-    GitHub Pages serves this page for any path without a file of its own (a
-    refresh on /dashboard, say), so it must boot the app like index.html: the
-    <body> is the same (test/web/web_shell_test.dart checks it). The base href
-    is fixed at "/" because flutter build only rewrites index.html.
+    Client portal links (/portal/?t=TOKEN, and /portal?t=TOKEN, which GitHub
+    Pages redirects here) get this real page instead of 404.html, so they
+    load with HTTP 200 and messaging apps show a link preview. The <body> is
+    index.html's (test/web/web_shell_test.dart checks it); go_router reads
+    /portal/ as /portal.
   -->
   <base href="/">
 
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="Quotes, invoices, jobs and scheduling for service businesses.">
+  <meta name="description" content="View, approve or pay your document online · Consultez, acceptez ou payez votre document en ligne.">
   <meta name="theme-color" content="#1565C0">
 
   <!-- Link previews -->
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="JobArray">
-  <meta property="og:title" content="JobArray">
-  <meta property="og:description" content="Quotes, invoices, jobs and scheduling for service businesses.">
+  <meta property="og:title" content="Your document · Votre document">
+  <meta property="og:description" content="View, approve or pay your document online · Consultez, acceptez ou payez votre document en ligne.">
 
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
